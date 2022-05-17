@@ -71,6 +71,54 @@ Currently, there is only one html parser published to Elm packages: [hecrj/elm-h
 - `npm test` to run tests
 - `npm docs` to preview docs locally
 
+## Technical notes
+
+### Parsing text
+
+One source of parser complexity is text. 
+
+Text in lenient html is basically "anything that wasn't parsed by the other parsers."
+
+This means that you can't have a simple parser like:
+
+```elm
+parser : Parser Node
+parser =
+    oneOf
+        [ element
+        , comment
+        , text
+        ]
+```
+
+Because how would you define the `text` parser that doesn't underconsume ("parse anything until `'<'`") nor overconsume?
+
+The best way I can think of accomplishing this with `elm/parser` is to, inside a loop, try all of your other parsers and then, if they all fail, consume a single character before looping again.
+
+Something like this:
+
+```elm
+parser : Parser (List Node)
+parser =
+    loop [] <|
+        \acc ->
+            oneOf
+                [ element |> map (\node -> Loop (node :: acc))
+                , comment |> map (\node -> Loop (node :: acc))
+                , chompIf (\_ -> True) 
+                    |> map (Text << String.fromChar)
+                    |> map (\node -> Loop (node :: acc))
+                , succeed () 
+                    |> map (\_ -> (Done (List.reverse acc)))
+                ]
+```
+
+It's not nice and simple anymore.  And since it's not possible to make an exhaustive `text` parser, I've had to repeat this kind of logic in various places.
+
+### The `LookAhead` parser
+
+TODO
+
 ## Special thanks
 
 - @hecrj and their contributors.
