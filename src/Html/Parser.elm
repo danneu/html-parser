@@ -755,6 +755,7 @@ openTagToString tag attrs =
                     )
                     attrs
                     |> String.join " "
+                    |> (\s -> " " ++ s)
            )
         ++ ">"
 
