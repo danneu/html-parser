@@ -1,0 +1,11 @@
+{
+    "private": true,
+    "devDependencies": {
+        "elm-doc-preview": "^5.0.5",
+        "elm-test": "^0.19.1-revision7"
+    },
+    "scripts": {
+        "test": "elm-test",
+        "docs": "elm-doc-preview"
+    }
+}
