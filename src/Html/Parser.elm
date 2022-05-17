@@ -866,11 +866,11 @@ prettyNode_ indent node_ =
                 let
                     ss =
                         s
+                            |> String.trim
                             |> String.split "\n"
                             |> List.filter (String.trim >> String.isEmpty >> not)
                             |> String.join ("\n" ++ String.padLeft (indent * 4) ' ' "")
                 in
-                -- "\n" ++ pad ++ s
                 "\n" ++ pad ++ ss
 
         Comment s ->
