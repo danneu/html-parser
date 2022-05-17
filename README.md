@@ -1,8 +1,33 @@
 # elm-html-parser
 
+<u>**Note**</u>: *Not currently published to Elm packages.*
+
 A lenient html5 parser implemented with [Elm](https://elm-lang.org). 
 
 A lenient alternative to [hecrj/elm-html-parser](https://package.elm-lang.org/packages/hecrj/html-parser/latest/).
+
+## Usage
+
+- `run` to parse an html string into a list of html nodes.
+- `runDocument` to parse `<!doctype html>[...]` into a root node.
+
+```elm
+import Html.Parser 
+
+Html.Parser.run "<p class=greeting>hello <strong>world</strong></p>"
+-- Ok 
+--     [ Element "p" [ ("class", "greeting") ] 
+--          [ Text "hello "
+--          , Element "strong" [] [ Text "world" ] 
+--          ] 
+--     ]
+```
+
+Rendering:
+
+- `nodeToHtml` or `nodesToHtml` to render parsed nodes into virtual dom nodes that Elm can render.
+- `nodeToString` and `nodesToString` to render parsed nodes into a string.
+- `nodeToPrettyString` and `nodesToPrettyString` to render parsed nodes into indented strings.
 
 ## Goals
 
