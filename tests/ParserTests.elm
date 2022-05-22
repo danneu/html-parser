@@ -2,9 +2,14 @@ module ParserTests exposing (..)
 
 import Expect exposing (Expectation)
 import Fuzz exposing (Fuzzer, int, list, string)
+import Html.CharRefs
 import Html.Parser exposing (Document, Node(..))
 import Parser exposing (DeadEnd)
 import Test exposing (..)
+
+
+config =
+    Html.Parser.configWithCharRefs
 
 
 testDoc : List ( String, String, Result (List DeadEnd) Document ) -> List Test
@@ -15,7 +20,7 @@ testDoc cases =
                 (\_ ->
                     let
                         actual =
-                            Html.Parser.runDocument html
+                            Html.Parser.runDocument config html
                     in
                     case expected of
                         Ok _ ->
@@ -41,7 +46,7 @@ testStringRoundtrip cases =
                 (\_ ->
                     let
                         actual =
-                            Html.Parser.run html
+                            Html.Parser.run config html
                                 |> Result.map Html.Parser.nodesToString
                     in
                     case expected of
@@ -68,7 +73,7 @@ testAll cases =
                 (\_ ->
                     let
                         actual =
-                            Html.Parser.run html
+                            Html.Parser.run config html
                     in
                     case expected of
                         Err _ ->
@@ -395,13 +400,13 @@ scriptTests =
 testParseAll : String -> List Node -> (() -> Expectation)
 testParseAll s astList =
     \_ ->
-        Expect.equal (Ok astList) (Html.Parser.run s)
+        Expect.equal (Ok astList) (Html.Parser.run config s)
 
 
 testParse : String -> Node -> (() -> Expectation)
 testParse input expected =
     \_ ->
-        case Html.Parser.run input of
+        case Html.Parser.run config input of
             Err message ->
                 Expect.fail (Parser.deadEndsToString message)
 

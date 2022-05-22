@@ -2,10 +2,15 @@ module LocTests exposing (..)
 
 import Expect exposing (Expectation)
 import Fuzz exposing (Fuzzer, int, list, string)
+import Html.CharRefs
 import Html.Loc as Q exposing (Loc)
 import Html.Parser exposing (Document, Node(..))
 import Parser exposing (DeadEnd)
 import Test exposing (..)
+
+
+config =
+    Html.Parser.configWithCharRefs
 
 
 type alias DirCase =
@@ -55,7 +60,7 @@ testTraversals cases =
                                     )
 
                         actual =
-                            Html.Parser.run x.html
+                            Html.Parser.run config x.html
                                 |> Result.toMaybe
                                 |> Maybe.andThen List.head
                                 |> Maybe.map Q.toLoc
