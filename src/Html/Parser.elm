@@ -13,7 +13,7 @@ into strings or Elm's virtual dom nodes.
 @docs Node, Document
 
 
-# Parsing
+# Parse
 
 @docs run, runElement, runDocument
 

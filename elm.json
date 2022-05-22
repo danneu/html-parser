@@ -1,12 +1,10 @@
 {
     "type": "package",
     "name": "danneu/html-parser",
-    "summary": "TODO",
+    "summary": "A lenient html5 parser",
     "license": "MIT",
     "version": "1.0.0",
-    "exposed-modules": [
-        "Html.Parser"
-    ],
+    "exposed-modules": ["Html.Parser"],
     "elm-version": "0.19.1 <= v < 0.20.0",
     "dependencies": {
         "elm/core": "1.0.5 <= v < 2.0.0",
