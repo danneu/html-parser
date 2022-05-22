@@ -1,6 +1,6 @@
 module Html.Parser exposing
     ( Node(..), Document
-    , run, runDocument
+    , run, runElement, runDocument
     , nodeToHtml, nodesToHtml, nodeToString, nodesToString, nodeToPrettyString, nodesToPrettyString, documentToString, documentToPrettyString
     )
 
@@ -15,7 +15,7 @@ into strings or Elm's virtual dom nodes.
 
 # Parsing
 
-@docs run, runDocument
+@docs run, runElement, runDocument
 
 
 # Render
@@ -56,6 +56,14 @@ The html fragment can have multiple top-level nodes.
 run : String -> Result (List DeadEnd) (List Node)
 run input =
     Parser.run parseAll input
+
+
+{-| Like `run` except it only succeeds when the html input is a
+single top-level element, and it always returns a single node.
+-}
+runElement : String -> Result (List DeadEnd) Node
+runElement input =
+    Parser.run element input
 
 
 {-| An html document has a `<!doctype>` and then a root html node.
@@ -396,6 +404,14 @@ openTag =
             ]
 
 
+{-| Parse one html element including all of its children.
+
+Html elements always have an opening `<tag>`, but they don't always have children nor do
+they always have a closing `</tag>`.
+
+The element parser is useful when the html input will only have one top-level element.
+
+-}
 element : Parser Node
 element =
     openTag
@@ -881,33 +897,34 @@ prettyNode_ indent node_ =
                 "\n" ++ pad ++ "<!--" ++ s ++ "-->"
 
         Element tag attrs kids ->
-            String.join ""
-                (List.concat
-                    [ [ "\n" ++ pad ++ openTagToString tag attrs ]
-                    , List.map (prettyNode_ (indent + 1)) kids
-                    , [ if List.isEmpty kids then
-                            ""
+            String.trim <|
+                String.join ""
+                    (List.concat
+                        [ [ "\n" ++ pad ++ openTagToString tag attrs ]
+                        , List.map (prettyNode_ (indent + 1)) kids
+                        , [ if List.isEmpty kids then
+                                ""
 
-                        else
-                            "\n"
-                      ]
-                    , [ (if List.isEmpty kids then
-                            ""
+                            else
+                                "\n"
+                          ]
+                        , [ (if List.isEmpty kids then
+                                ""
 
-                         else
-                            pad
-                        )
-                            ++ (if isVoidTag tag && List.isEmpty kids then
-                                    ""
+                             else
+                                pad
+                            )
+                                ++ (if isVoidTag tag && List.isEmpty kids then
+                                        ""
 
-                                else
-                                    "</"
-                                        ++ tag
-                                        ++ ">"
-                               )
-                      ]
-                    ]
-                )
+                                    else
+                                        "</"
+                                            ++ tag
+                                            ++ ">"
+                                   )
+                          ]
+                        ]
+                    )
 
 
 {-| Turn a node tree into a pretty-printed, indented html string.

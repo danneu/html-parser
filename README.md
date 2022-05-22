@@ -6,9 +6,13 @@ A lenient html5 parser implemented with [Elm](https://elm-lang.org).
 
 A lenient alternative to [hecrj/elm-html-parser](https://package.elm-lang.org/packages/hecrj/html-parser/latest/).
 
+**Experimental**: Also contains undocumented, work-in-progress node tree traversal, query, and transformation in `Loc.elm` using a [Zipper](https://en.wikipedia.org/wiki/Zipper_(data_structure)) data-structure.
+
+
 ## Usage
 
 - `run` to parse an html string into a list of html nodes.
+- `runElement` to parse a single html element.
 - `runDocument` to parse `<!doctype html>[...]` into a root node.
 
 ```elm
