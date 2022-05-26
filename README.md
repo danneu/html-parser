@@ -16,7 +16,8 @@ A lenient alternative to [hecrj/elm-html-parser](https://package.elm-lang.org/pa
 ```elm
 import Html.Parser 
 
-Html.Parser.run "<p class=greeting>hello <strong>world</strong></p>"
+"<p class=greeting>hello <strong>world</strong></p>"
+|> Html.Parser.run Html.Parser.allCharRefs
 -- Ok 
 --     [ Element "p" [ ("class", "greeting") ] 
 --          [ Text "hello "

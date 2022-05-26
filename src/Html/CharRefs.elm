@@ -1,16 +1,15 @@
-module Html.CharRefs exposing (decode)
+module Html.CharRefs exposing (all)
 
 import Dict exposing (Dict)
 
 
-decode : String -> Maybe String
-decode name =
-    Dict.get name dict
+{-| The exhaustive spec-complete lookup table.
 
+Source: <https://www.w3.org/TR/html5/syntax.html#named-character-references>
 
-dict : Dict String String
-dict =
-    -- Source: https://www.w3.org/TR/html5/syntax.html#named-character-references
+-}
+all : Dict String String
+all =
     [ ( "Aacute", "Á" )
     , ( "aacute", "á" )
     , ( "Abreve", "Ă" )

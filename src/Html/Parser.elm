@@ -1,5 +1,6 @@
 module Html.Parser exposing
-    ( Node(..), Document
+    ( Node(..), Document, Config
+    , allCharRefs, noCharRefs, customCharRefs
     , run, runElement, runDocument
     , nodeToHtml, nodesToHtml, nodeToString, nodesToString, nodeToPrettyString, nodesToPrettyString, documentToString, documentToPrettyString
     )
@@ -10,7 +11,12 @@ into strings or Elm's virtual dom nodes.
 
 # Definition
 
-@docs Node, Document
+@docs Node, Document, Config
+
+
+# Config
+
+@docs allCharRefs, noCharRefs, customCharRefs
 
 
 # Parse
@@ -24,6 +30,7 @@ into strings or Elm's virtual dom nodes.
 
 -}
 
+import Dict exposing (Dict)
 import Hex
 import Html
 import Html.Attributes
@@ -42,28 +49,100 @@ type Node
     | Element String (List ( String, String )) (List Node)
 
 
+{-| Configure the parser. Use the config constructors to create a config object.
+-}
+type Config
+    = Config
+        { charRefs : Dict String String
+        }
+
+
+{-| A config with char reference decoding turned on.
+
+This will add ~40kb to your bundle, but it is necessary to decode
+entities like `"&Delta;"` into "Δ".
+
+    run allCharRefs "abc&Delta;def"
+        == Ok [ text "abcΔdef" ]
+
+-}
+allCharRefs : Config
+allCharRefs =
+    Config { charRefs = Html.CharRefs.all }
+
+
+{-| A config with char reference decoding turned off.
+
+If you know that the html you are parsing never has named character references,
+or if it's sufficient to just consume them as undecoded text, then turning this off will shrink your bundle size.
+
+    run noCharRefs "abc&Delta;def"
+        == Ok [ text "abc&Delta;def" ]
+
+-}
+noCharRefs : Config
+noCharRefs =
+    Config { charRefs = Dict.empty }
+
+
+{-| Provide your own character reference lookup dictionary.
+
+Note that named character references are case sensitive. When providing your own,
+you will want to consult the exhaustive `Html.CharRefs.all` dictionary to
+see which keys appear multiple times, like "quot" and "QUOT".
+
+Here is an example of providing a small subset of commonly-seen character references.
+
+    config : Html.Parser.Config
+    config =
+        [ ( "quot", "\"" )
+        , ( "QUOT", "\"" )
+        , ( "apos", "'" )
+        , ( "gt", ">" )
+        , ( "GT", ">" )
+        , ( "Gt", ">" )
+        , ( "lt", "<" )
+        , ( "LT", "<" )
+        , ( "Lt", "<" )
+        , ( "amp", "&" )
+        , ( "AMP", "&" )
+        , ( "nbsp", "\u{00A0}" )
+        ]
+        |> Dict.fromList
+        |> customCharRefs
+
+    run config "<span>&male; &dollar; &female;</span>"
+        == Ok (Element "span" [] [Text "&male; $ &female;"])
+
+Notice that character references missing from the lookup table are simply parsed as text.
+
+-}
+customCharRefs : Dict String String -> Config
+customCharRefs dict =
+    Config { charRefs = dict }
+
+
 {-| Parse an html fragment into a list of html nodes.
 
 The html fragment can have multiple top-level nodes.
 
-    run "<div>hi</div><div>bye</div>"
+    run allCharRefs "<div>hi</div><div>bye</div>"
         == Ok
             [ Element "div" [] [ Text "hi" ]
             , Element "div" [] [ Text "bye" ]
             ]
 
 -}
-run : String -> Result (List DeadEnd) (List Node)
-run input =
-    Parser.run parseAll input
+run : Config -> String -> Result (List DeadEnd) (List Node)
+run cfg input =
+    Parser.run (parseAll cfg) input
 
 
-{-| Like `run` except it only succeeds when the html input is a
-single top-level element, and it always returns a single node.
+{-| Like `run` except it only parses one top-level element and it always returns a single node.
 -}
-runElement : String -> Result (List DeadEnd) Node
-runElement input =
-    Parser.run element input
+runElement : Config -> String -> Result (List DeadEnd) Node
+runElement cfg input =
+    Parser.run (element cfg) input
 
 
 {-| An html document has a `<!doctype>` and then a root html node.
@@ -146,17 +225,17 @@ Always returns a single root node. Wraps nodes in a root `<html>` node if one is
 function will wrap them all in another `<html>` node.
 
 -}
-runDocument : String -> Result (List DeadEnd) Document
-runDocument input =
-    Parser.run document input
+runDocument : Config -> String -> Result (List DeadEnd) Document
+runDocument cfg input =
+    Parser.run (document cfg) input
 
 
-document : Parser Document
-document =
+document : Config -> Parser Document
+document cfg =
     succeed Document
         |= doctype
         |. ws
-        |= (zeroOrMore node
+        |= (zeroOrMore (node cfg)
                 |> map
                     (\nodes ->
                         case nodes of
@@ -175,12 +254,12 @@ document =
            )
 
 
-parseAll : Parser (List Node)
-parseAll =
+parseAll : Config -> Parser (List Node)
+parseAll cfg =
     Parser.loop [] <|
         \acc ->
             oneOf
-                [ node |> map (\n -> Loop (mergeText n acc))
+                [ node cfg |> map (\n -> Loop (mergeText n acc))
                 , succeed () |> map (\_ -> Done (List.reverse acc))
                 ]
 
@@ -215,8 +294,8 @@ isSpace c =
 -- ATTRIBUTES
 
 
-attributeValueUnquoted : Parser String
-attributeValueUnquoted =
+attributeValueUnquoted : Config -> Parser String
+attributeValueUnquoted cfg =
     let
         isUnquotedValueChar c =
             not (isSpace c) && c /= '"' && c /= '\'' && c /= '=' && c /= '<' && c /= '>' && c /= '`' && c /= '&'
@@ -224,14 +303,14 @@ attributeValueUnquoted =
     oneOf
         [ chompOneOrMore isUnquotedValueChar
             |> getChompedString
-        , characterReference
+        , characterReference cfg
         ]
         |> oneOrMore "attribute value"
         |> map (String.join "")
 
 
-attributeValueQuoted : Char -> Parser String
-attributeValueQuoted quote =
+attributeValueQuoted : Config -> Char -> Parser String
+attributeValueQuoted cfg quote =
     let
         isQuotedValueChar c =
             c /= quote && c /= '&'
@@ -241,7 +320,7 @@ attributeValueQuoted quote =
         |= (oneOf
                 [ chompOneOrMore isQuotedValueChar
                     |> getChompedString
-                , characterReference
+                , characterReference cfg
                 ]
                 |> zeroOrMore
                 |> map (String.join "")
@@ -274,8 +353,8 @@ attributeKey =
            )
 
 
-attribute : Parser ( String, String )
-attribute =
+attribute : Config -> Parser ( String, String )
+attribute cfg =
     succeed Tuple.pair
         |= attributeKey
         |. ws
@@ -284,9 +363,9 @@ attribute =
                 |. symbol "="
                 |. ws
                 |= oneOf
-                    [ attributeValueUnquoted -- <div foo=bar>
-                    , attributeValueQuoted '"' -- <div foo="bar">
-                    , attributeValueQuoted '\'' -- <div foo='bar'>
+                    [ attributeValueUnquoted cfg -- <div foo=bar>
+                    , attributeValueQuoted cfg '"' -- <div foo="bar">
+                    , attributeValueQuoted cfg '\'' -- <div foo='bar'>
                     ]
             , succeed "" -- <div foo>
             ]
@@ -334,15 +413,15 @@ anyCloseTag =
         |. token ">"
 
 
-node : Parser Node
-node =
+node : Config -> Parser Node
+node cfg =
     succeed identity
         -- HACK: Ignore unmatched close tags like the browser does
         |. zeroOrMore (backtrackable anyCloseTag)
         |= oneOf
-            [ text
+            [ text cfg
             , comment
-            , backtrackable element
+            , backtrackable (element cfg)
             , justOneChar |> map Text
             ]
 
@@ -355,11 +434,11 @@ comment =
         |. symbol "-->"
 
 
-text : Parser Node
-text =
+text : Config -> Parser Node
+text cfg =
     oneOf
         [ succeed Text
-            |= backtrackable characterReference
+            |= backtrackable (characterReference cfg)
         , succeed Text
             |= (chompOneOrMore (\c -> c /= '<' && c /= '&') |> getChompedString)
         ]
@@ -367,11 +446,11 @@ text =
 
 {-| Parse any node unless it's one of the given tags.
 -}
-notNode : List String -> Parser Node
-notNode tags =
+notNode : Config -> List String -> Parser Node
+notNode cfg tags =
     oneOf
         [ lookAhead
-            (openTag
+            (openTag cfg
                 |> andThen
                     (\( tag, _, _ ) ->
                         if List.member tag tags then
@@ -381,20 +460,20 @@ notNode tags =
                             succeed ()
                     )
             )
-            |> andThen (\_ -> element)
-        , text
+            |> andThen (\_ -> element cfg)
+        , text cfg
         , comment
         ]
 
 
-openTag : Parser ( String, List ( String, String ), OpenTagEnd )
-openTag =
+openTag : Config -> Parser ( String, List ( String, String ), OpenTagEnd )
+openTag cfg =
     succeed (\a b c -> ( a, b, c ))
         |. symbol "<"
         |. ws
         |= tagName
         |. ws
-        |= zeroOrMore attribute
+        |= zeroOrMore (attribute cfg)
         |. ws
         |= oneOf
             [ succeed NoClose
@@ -412,9 +491,9 @@ they always have a closing `</tag>`.
 The element parser is useful when the html input will only have one top-level element.
 
 -}
-element : Parser Node
-element =
-    openTag
+element : Config -> Parser Node
+element cfg =
+    openTag cfg
         |> andThen
             (\( tag, attrs, end ) ->
                 case end of
@@ -437,10 +516,10 @@ element =
                                     [ succeed identity
                                         |= zeroOrMore
                                             (if tag == "head" then
-                                                notNode [ tag, "body" ]
+                                                notNode cfg [ tag, "body" ]
 
                                              else
-                                                notNode [ tag ]
+                                                notNode cfg [ tag ]
                                             )
                                         |. oneOf
                                             [ backtrackable (closeTag tag)
@@ -456,7 +535,7 @@ element =
                                             oneOf
                                                 [ backtrackable (closeTag tag) |> map (\_ -> Done (List.reverse acc))
                                                 , succeed (\n -> Loop (mergeText n acc))
-                                                    |= backtrackable node
+                                                    |= backtrackable (node cfg)
                                                 , succeed () |> map (\_ -> Done (List.reverse acc))
                                                 ]
                                    )
@@ -530,25 +609,25 @@ numericCharacterReference =
            )
 
 
-namedCharacterReference : Parser String
-namedCharacterReference =
+namedCharacterReference : Config -> Parser String
+namedCharacterReference (Config cfg) =
     chompOneOrMore Char.isAlpha
         |> getChompedString
         |> map
             (\ref ->
-                Html.CharRefs.decode ref
+                Dict.get ref cfg.charRefs
                     |> Maybe.withDefault ("&" ++ ref ++ ";")
             )
 
 
-characterReference : Parser String
-characterReference =
+characterReference : Config -> Parser String
+characterReference cfg =
     succeed identity
         |. chompIf ((==) '&')
         |= oneOf
             [ backtrackable numericCharacterReference
                 |. chompIf ((==) ';')
-            , backtrackable namedCharacterReference
+            , backtrackable (namedCharacterReference cfg)
                 |. chompIf ((==) ';')
             , succeed "&"
             ]
@@ -844,7 +923,7 @@ nodeToHtml node_ =
         Html.div
             []
             ("<p>hello world</p>"
-                |> Html.Parser.run
+                |> Html.Parser.run Html.Parser.allCharRefs
                 |> Result.map Html.Parser.nodesToHtml
                 |> Result.withDefault [ Html.text "parse error" ]
             )
@@ -930,7 +1009,7 @@ prettyNode_ indent node_ =
 {-| Turn a node tree into a pretty-printed, indented html string.
 
     ("<a><b><c>hello</c></b></a>"
-        |> Html.Parser.run
+        |> Html.Parser.run Html.Parser.allCharRefs
         |> Result.map nodesToPrettyString
     )
         == Ok """<a>
