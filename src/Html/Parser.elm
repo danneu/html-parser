@@ -1,6 +1,6 @@
 module Html.Parser exposing
     ( Node(..), Document, Config
-    , configWithCharRefs, configWithoutCharRefs
+    , allCharRefs, noCharRefs, customCharRefs
     , run, runElement, runDocument
     , nodeToHtml, nodesToHtml, nodeToString, nodesToString, nodeToPrettyString, nodesToPrettyString, documentToString, documentToPrettyString
     )
@@ -16,7 +16,7 @@ into strings or Elm's virtual dom nodes.
 
 # Config
 
-@docs configWithCharRefs, configWithoutCharRefs
+@docs allCharRefs, noCharRefs, customCharRefs
 
 
 # Parse
@@ -49,7 +49,7 @@ type Node
     | Element String (List ( String, String )) (List Node)
 
 
-{-| The config object tells the parser if it should decode named character references.
+{-| Configure the parser. Use the config constructors to create a config object.
 -}
 type Config
     = Config
@@ -60,15 +60,15 @@ type Config
 {-| A config with char reference decoding turned on.
 
 This will add ~40kb to your bundle, but it is necessary to decode
-entities like "&Delta;" into "Δ".
+entities like `"&Delta;"` into "Δ".
 
-    run configWithoutCharRefs "abc&Delta;def"
+    run allCharRefs "abc&Delta;def"
         == Ok [ text "abcΔdef" ]
 
 -}
-configWithCharRefs : Config
-configWithCharRefs =
-    Config { charRefs = Html.CharRefs.default }
+allCharRefs : Config
+allCharRefs =
+    Config { charRefs = Html.CharRefs.all }
 
 
 {-| A config with char reference decoding turned off.
@@ -76,20 +76,57 @@ configWithCharRefs =
 If you know that the html you are parsing never has named character references,
 or if it's sufficient to just consume them as undecoded text, then turning this off will shrink your bundle size.
 
-    run configWithoutCharRefs "abc&Delta;def"
+    run noCharRefs "abc&Delta;def"
         == Ok [ text "abc&Delta;def" ]
 
 -}
-configWithoutCharRefs : Config
-configWithoutCharRefs =
+noCharRefs : Config
+noCharRefs =
     Config { charRefs = Dict.empty }
+
+
+{-| Provide your own character reference lookup dictionary.
+
+Note that named character references are case sensitive. When providing your own,
+you will want to consult the exhaustive `Html.CharRefs.all` dictionary to
+see which keys appear multiple times, like "quot" and "QUOT".
+
+Here is an example of providing a small subset of commonly-seen character references.
+
+    config : Html.Parser.Config
+    config =
+        [ ( "quot", "\"" )
+        , ( "QUOT", "\"" )
+        , ( "apos", "'" )
+        , ( "gt", ">" )
+        , ( "GT", ">" )
+        , ( "Gt", ">" )
+        , ( "lt", "<" )
+        , ( "LT", "<" )
+        , ( "Lt", "<" )
+        , ( "amp", "&" )
+        , ( "AMP", "&" )
+        , ( "nbsp", "\u{00A0}" )
+        ]
+        |> Dict.fromList
+        |> customCharRefs
+
+    run config "<span>&male; &dollar; &female;</span>"
+        == Ok (Element "span" [] [Text "&male; $ &female;"])
+
+Notice that character references missing from the lookup table are simply parsed as text.
+
+-}
+customCharRefs : Dict String String -> Config
+customCharRefs dict =
+    Config { charRefs = dict }
 
 
 {-| Parse an html fragment into a list of html nodes.
 
 The html fragment can have multiple top-level nodes.
 
-    run "<div>hi</div><div>bye</div>"
+    run allCharRefs "<div>hi</div><div>bye</div>"
         == Ok
             [ Element "div" [] [ Text "hi" ]
             , Element "div" [] [ Text "bye" ]
@@ -101,8 +138,7 @@ run cfg input =
     Parser.run (parseAll cfg) input
 
 
-{-| Like `run` except it only succeeds when the html input is a
-single top-level element, and it always returns a single node.
+{-| Like `run` except it only parses one top-level element and it always returns a single node.
 -}
 runElement : Config -> String -> Result (List DeadEnd) Node
 runElement cfg input =
@@ -887,7 +923,7 @@ nodeToHtml node_ =
         Html.div
             []
             ("<p>hello world</p>"
-                |> Html.Parser.run
+                |> Html.Parser.run Html.Parser.allCharRefs
                 |> Result.map Html.Parser.nodesToHtml
                 |> Result.withDefault [ Html.text "parse error" ]
             )
@@ -973,7 +1009,7 @@ prettyNode_ indent node_ =
 {-| Turn a node tree into a pretty-printed, indented html string.
 
     ("<a><b><c>hello</c></b></a>"
-        |> Html.Parser.run
+        |> Html.Parser.run Html.Parser.allCharRefs
         |> Result.map nodesToPrettyString
     )
         == Ok """<a>

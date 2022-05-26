@@ -1,11 +1,15 @@
-module Html.CharRefs exposing (default)
+module Html.CharRefs exposing (all)
 
 import Dict exposing (Dict)
 
 
-default : Dict String String
-default =
-    -- Source: https://www.w3.org/TR/html5/syntax.html#named-character-references
+{-| The exhaustive spec-complete lookup table.
+
+Source: <https://www.w3.org/TR/html5/syntax.html#named-character-references>
+
+-}
+all : Dict String String
+all =
     [ ( "Aacute", "Á" )
     , ( "aacute", "á" )
     , ( "Abreve", "Ă" )

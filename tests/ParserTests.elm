@@ -9,7 +9,7 @@ import Test exposing (..)
 
 
 config =
-    Html.Parser.configWithCharRefs
+    Html.Parser.allCharRefs
 
 
 testDoc : List ( String, String, Result (List DeadEnd) Document ) -> List Test

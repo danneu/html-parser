@@ -10,7 +10,7 @@ import Test exposing (..)
 
 
 config =
-    Html.Parser.configWithCharRefs
+    Html.Parser.allCharRefs
 
 
 type alias DirCase =
