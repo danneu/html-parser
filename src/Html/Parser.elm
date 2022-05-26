@@ -276,6 +276,7 @@ mergeText n nodes =
 
 {-| Chomps zero or more space characters or html comments.
 -}
+ws : Parser ()
 ws =
     loop 0 <|
         ifProgress <|
@@ -287,7 +288,7 @@ ws =
 
 isSpace : Char -> Bool
 isSpace c =
-    c == ' ' || c == '\n' || c == '\u{000D}' || c == '\n' || c == '\t' || c == '\u{000C}' || c == '\u{00A0}'
+    c == ' ' || c == '\n' || c == '\u{000D}' || c == '\t' || c == '\u{000C}' || c == '\u{00A0}'
 
 
 
@@ -306,7 +307,7 @@ attributeValueUnquoted cfg =
         , characterReference cfg
         ]
         |> oneOrMore "attribute value"
-        |> map (String.join "")
+        |> map String.concat
 
 
 attributeValueQuoted : Config -> Char -> Parser String
@@ -323,7 +324,7 @@ attributeValueQuoted cfg quote =
                 , characterReference cfg
                 ]
                 |> zeroOrMore
-                |> map (String.join "")
+                |> map String.concat
            )
         |. chompIf ((==) quote)
 
@@ -512,8 +513,7 @@ element cfg =
                         else if isAutoclosingTag tag then
                             -- Autoclosing tag is automatically closed by an opening tag of the same name
                             succeed (Element tag attrs)
-                                |= oneOf
-                                    [ succeed identity
+                                |= (succeed identity
                                         |= zeroOrMore
                                             (if tag == "head" then
                                                 notNode cfg [ tag, "body" ]
@@ -525,7 +525,7 @@ element cfg =
                                             [ backtrackable (closeTag tag)
                                             , succeed ()
                                             ]
-                                    ]
+                                   )
 
                         else
                             -- Normal elements parse all nodes as children until their closing tag
@@ -877,7 +877,7 @@ nodeToString node_ =
             else
                 openTagToString tag attrs
                     ++ (List.map nodeToString kids
-                            |> String.join ""
+                            |> String.concat
                        )
                     ++ "</"
                     ++ tag
@@ -896,7 +896,7 @@ nodeToString node_ =
 nodesToString : List Node -> String
 nodesToString nodes =
     List.map nodeToString nodes
-        |> String.join ""
+        |> String.concat
 
 
 {-| Turn a single node into an Elm html node that Elm can render.
@@ -977,7 +977,7 @@ prettyNode_ indent node_ =
 
         Element tag attrs kids ->
             String.trim <|
-                String.join ""
+                String.concat
                     (List.concat
                         [ [ "\n" ++ pad ++ openTagToString tag attrs ]
                         , List.map (prettyNode_ (indent + 1)) kids
@@ -986,8 +986,7 @@ prettyNode_ indent node_ =
 
                             else
                                 "\n"
-                          ]
-                        , [ (if List.isEmpty kids then
+                          , (if List.isEmpty kids then
                                 ""
 
                              else

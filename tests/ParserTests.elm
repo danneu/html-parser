@@ -1,8 +1,6 @@
 module ParserTests exposing (..)
 
 import Expect exposing (Expectation)
-import Fuzz exposing (Fuzzer, int, list, string)
-import Html.CharRefs
 import Html.Parser exposing (Document, Node(..))
 import Parser exposing (DeadEnd)
 import Test exposing (..)

@@ -1,11 +1,8 @@
-module LocTests exposing (..)
+module LocTests exposing (Dir(..), DirCase, config, testTraversals, zipperTests)
 
-import Expect exposing (Expectation)
-import Fuzz exposing (Fuzzer, int, list, string)
-import Html.CharRefs
+import Expect
 import Html.Loc as Q exposing (Loc)
-import Html.Parser exposing (Document, Node(..))
-import Parser exposing (DeadEnd)
+import Html.Parser exposing (Node(..))
 import Test exposing (..)
 
 
