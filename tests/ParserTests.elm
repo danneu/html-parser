@@ -392,6 +392,80 @@ scriptTests =
 
 
 
+-- COPYING BROWSER BEHAVIOR
+
+
+browserBehaviorTests : Test
+browserBehaviorTests =
+    describe "browser behavior" <|
+        testAll
+            [ ( ""
+              , "<p>a<p>b</p>c<p>d"
+              , Ok
+                    [ Element "p" [] [ Text "a" ]
+                    , Element "p" [] [ Text "b" ]
+                    , Text "c"
+                    , Element "p" [] [ Text "d" ]
+                    ]
+              )
+            , ( ""
+              , "<div>&quot; &quoT; &qUot; &QUOT;</div>"
+              , Ok
+                    [ Element "div"
+                        []
+                        [ Text "\" &quoT; &qUot; \""
+                        ]
+                    ]
+              )
+            , ( ""
+              , "<p><img src=x\"></p>"
+              , Ok
+                    [ Element "p"
+                        []
+                        [ Element "img" [ ( "src", "x\"" ) ] []
+                        ]
+                    ]
+              )
+            , ( ""
+              , "<img src=x\"`\"/a=b>"
+              , Ok [ Element "img" [ ( "src", "x\"`\"/a=b" ) ] [] ]
+              )
+            , ( ""
+              , "<img src=\">"
+                -- Browser doesn't turn it into DOM. We will just consume it as text.
+              , Ok [ Text "<img src=\">" ]
+              )
+            , ( "", "<img src=<>", Ok [ Element "img" [ ( "src", "<" ) ] [] ] )
+            , ( "", "<img src==>", Ok [ Element "img" [ ( "src", "=" ) ] [] ] )
+            , ( "", "<img src= a >", Ok [ Element "img" [ ( "src", "a" ) ] [] ] )
+            , ( ""
+              , "<a href=a><abbr title=b>c</a>"
+              , Ok
+                    [ Element "a"
+                        [ ( "href", "a" ) ]
+                        [ Element "abbr"
+                            [ ( "title", "b" )
+                            ]
+                            [ Text "c" ]
+                        ]
+                    ]
+              )
+            , ( ""
+              , "<body><p><textarea>one<p>two"
+              , Ok
+                    [ Element "body"
+                        []
+                        [ Element "p"
+                            []
+                            [ Element "textarea" [] [ Text "one<p>two" ]
+                            ]
+                        ]
+                    ]
+              )
+            ]
+
+
+
 -- TESTS FROM hecrj/elm-html-parser
 
 
@@ -694,3 +768,20 @@ jsoupAttributeTests =
 
 
 -- TODO: https://github.com/jhy/jsoup/blob/master/src/test/java/org/jsoup/parser/HtmlParserTest.java
+
+
+jsoupParserTests =
+    describe "tests from jsoup" <|
+        testAll
+            [ ( "unterimated-comment"
+              , "<p>Hello<!-- <tr><td>"
+              , Ok
+                    [ Element "p"
+                        []
+                        [ Text "Hello"
+                        , Comment " <tr><td>"
+                        ]
+                    ]
+              )
+            , ( "all-hyphen comment is not parse error", "<!------>", Ok [ Comment "--" ] )
+            ]

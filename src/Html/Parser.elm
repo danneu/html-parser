@@ -298,11 +298,13 @@ isSpace c =
 attributeValueUnquoted : Config -> Parser String
 attributeValueUnquoted cfg =
     let
-        isUnquotedValueChar c =
-            not (isSpace c) && c /= '"' && c /= '\'' && c /= '=' && c /= '<' && c /= '>' && c /= '`' && c /= '&'
+        -- isUnquotedValueChar c =
+        --     not (isSpace c) && c /= '"' && c /= '\'' && c /= '=' && c /= '<' && c /= '>' && c /= '`' && c /= '&'
+        isLenientUnquotedValueChar c =
+            not (isSpace c) && c /= '>'
     in
     oneOf
-        [ chompOneOrMore isUnquotedValueChar
+        [ chompOneOrMore isLenientUnquotedValueChar
             |> getChompedString
         , characterReference cfg
         ]
@@ -364,9 +366,9 @@ attribute cfg =
                 |. symbol "="
                 |. ws
                 |= oneOf
-                    [ attributeValueUnquoted cfg -- <div foo=bar>
-                    , attributeValueQuoted cfg '"' -- <div foo="bar">
+                    [ attributeValueQuoted cfg '"' -- <div foo="bar">
                     , attributeValueQuoted cfg '\'' -- <div foo='bar'>
+                    , attributeValueUnquoted cfg -- <div foo=bar>
                     ]
             , succeed "" -- <div foo>
             ]
