@@ -1,65 +1,68 @@
 # elm-html-parser
 
-A lenient html5 parser implemented with [Elm](https://elm-lang.org). 
+A lenient html5 parser implemented with [Elm](https://elm-lang.org).
 
 A lenient alternative to [hecrj/elm-html-parser](https://package.elm-lang.org/packages/hecrj/html-parser/latest/).
 
-**Experimental**: Also contains undocumented, unpublished, work-in-progress node tree traversal, query, and transformation in `Loc.elm` using a [Zipper](https://en.wikipedia.org/wiki/Zipper_(data_structure)) data-structure.
-
+**Experimental**: Also contains undocumented, unpublished, work-in-progress node tree traversal, query, and transformation in `Loc.elm` using a [Zipper](<https://en.wikipedia.org/wiki/Zipper_(data_structure)>) data-structure.
 
 ## Usage
 
-- `run` to parse an html string into a list of html nodes.
-- `runElement` to parse a single html element.
-- `runDocument` to parse `<!doctype html>[...]` into a root node.
+-   `run` to parse an html string into a list of html nodes.
+-   `runElement` to parse a single html element.
+-   `runDocument` to parse `<!doctype html>[...]` into a root node.
 
 ```elm
-import Html.Parser 
+import Html.Parser
 
 "<p class=greeting>hello <strong>world</strong></p>"
 |> Html.Parser.run Html.Parser.allCharRefs
--- Ok 
---     [ Element "p" [ ("class", "greeting") ] 
+-- Ok
+--     [ Element "p" [ ("class", "greeting") ]
 --          [ Text "hello "
---          , Element "strong" [] [ Text "world" ] 
---          ] 
+--          , Element "strong" [] [ Text "world" ]
+--          ]
 --     ]
 ```
 
 Rendering:
 
-- `nodeToHtml` or `nodesToHtml` to render parsed nodes into virtual dom nodes that Elm can render.
-- `nodeToString` and `nodesToString` to render parsed nodes into a string.
-- `nodeToPrettyString` and `nodesToPrettyString` to render parsed nodes into indented strings.
+-   `nodeToHtml` or `nodesToHtml` to render parsed nodes into virtual dom nodes that Elm can render.
+-   `nodeToString` and `nodesToString` to render parsed nodes into a string.
+-   `nodeToPrettyString` and `nodesToPrettyString` to render parsed nodes into indented strings.
 
 ## Goals
 
-- **Leniency** 
-    - Avoids validating while parsing
-    - Prefers to immitate browser parsing behavior rather than html5 spec.
-    - Prefers to use the html5 spec only to handle ambiguous cases rather than to prohibit invalid html5
-    - Prefers to fall back to text nodes than short-circuit with parse errors
-- **Handle user-written html**
-    - Users don't write character entities like `&amp;` and `&lt;`. This parser should strive to handle cases like `<p><:</p>` -> `Element "p" [] [ Text "<:" ]`. 
+-   **Leniency**
+    -   Avoids validating while parsing
+    -   Prefers to immitate browser parsing behavior rather than html5 spec.
+    -   Prefers to use the html5 spec only to handle ambiguous cases rather than to prohibit invalid html5
+    -   Prefers to fall back to text nodes than short-circuit with parse errors
+-   **Handle user-written html**
+    -   Users don't write character entities like `&amp;` and `&lt;`. This parser should strive to handle cases like `<p><:</p>` -> `Element "p" [] [ Text "<:" ]`.
 
 ## Features / Quirks
 
-- Characters don't need to be escaped into entities. 
+-   Characters don't need to be escaped into entities.
 
-  e.g. `<div><:</div>` will parse correctly and doesn't need to be rewritten into `<div>&lt;:</div>`.
-- Tags that should not nest are autoclosed. 
+    e.g. `<div><:</div>` will parse correctly and doesn't need to be rewritten into `<div>&lt;:</div>`.
 
-  e.g. `<p>a<p>b` -> `<p>a</p><p>b</p>`.
-- Closing tags that have no matching open tags are ignored. 
+-   Tags that should not nest are autoclosed.
 
-  e.g. `</a><div></div></div></b>` -> `<div></div>`
-- Ignores comments in whitespace positions:
- 
-  e.g. `<div <!--comment-->/>` -> `<div/>`
-- Parses comments in text node positions:
+    e.g. `<p>a<p>b` -> `<p>a</p><p>b</p>`.
 
-  e.g. `div><!--comment--></div>` -> 
-  `Element "div" [ Comment "comment" ]`
+-   Closing tags that have no matching open tags are ignored.
+
+    e.g. `</a><div></div></div></b>` -> `<div></div>`
+
+-   Ignores comments in whitespace positions:
+
+    e.g. `<div <!--comment-->/>` -> `<div/>`
+
+-   Parses comments in text node positions:
+
+    e.g. `div><!--comment--></div>` ->
+    `Element "div" [ Comment "comment" ]`
 
 ## Differences from existing packages
 
@@ -71,8 +74,8 @@ Currently, there is only one html parser published to Elm packages: [hecrj/elm-h
 
 `git clone` and `npm install`.
 
-- `npm test` to run tests
-- `npm docs` to preview docs locally
+-   `npm test` to run tests
+-   `npm docs` to preview docs locally
 
 ## Technical notes
 
@@ -80,7 +83,7 @@ Currently, there is only one html parser published to Elm packages: [hecrj/elm-h
 
 **Note: This talks about the `text` parser pre-v3.0.0. Scroll to the next subheader to read about what changed.**
 
-One source of parser complexity is text. 
+One source of parser complexity is text.
 
 Text in lenient html is basically "anything that wasn't parsed by the other parsers."
 
@@ -110,17 +113,17 @@ parser =
             oneOf
                 [ element |> map (\node -> Loop (node :: acc))
                 , comment |> map (\node -> Loop (node :: acc))
-                , chompIf (\_ -> True) 
+                , chompIf (\_ -> True)
                     |> map (Text << String.fromChar)
                     |> map (\node -> Loop (node :: acc))
-                , succeed () 
+                , succeed ()
                     |> map (\_ -> (Done (List.reverse acc)))
                 ]
 ```
 
-It's not nice and simple anymore.  And since it's not possible to make an exhaustive `text` parser, I've had to repeat this kind of logic in various places.
+It's not nice and simple anymore. And since it's not possible to make an exhaustive `text` parser, I've had to repeat this kind of logic in various places.
 
-### (v3.0.0) Parsing text 
+### (v3.0.0) Parsing text
 
 The `text` parser was changed in v3.0.0 to be stand-alone meaning that if you apply the `text` parser, it will return a text node that consumed text up until the next non-text node could be parsed.
 
@@ -128,13 +131,11 @@ I did this by refacoring the text parser from what was outlined above into a par
 
 While it's nice to have stand-alone text parsing behavior, I will need to look more into the performance impact of this.
 
-
-
 ### The `LookAhead` parser
 
 TODO
 
 ## Special thanks
 
-- @hecrj and their contributors.
-- @ymtszw for their work on the Javascript `<script>` parser.
+-   @hecrj and their contributors.
+-   @ymtszw for their work on the Javascript `<script>` parser.
