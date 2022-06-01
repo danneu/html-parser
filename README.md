@@ -79,9 +79,9 @@ Currently, there is only one html parser published to Elm packages: [hecrj/elm-h
 
 ## Technical notes
 
-### (pre-v3.0.0) Parsing text
+### (pre-v2.0.1) Parsing text
 
-**Note: This talks about the `text` parser pre-v3.0.0. Scroll to the next subheader to read about what changed.**
+**Note: This talks about the `text` parser pre-v2.0.1. Scroll to the next subheader to read about what changed.**
 
 One source of parser complexity is text.
 
@@ -123,9 +123,9 @@ parser =
 
 It's not nice and simple anymore. And since it's not possible to make an exhaustive `text` parser, I've had to repeat this kind of logic in various places.
 
-### (v3.0.0) Parsing text
+### (v2.0.1) Parsing text
 
-The `text` parser was changed in v3.0.0 to be stand-alone meaning that if you apply the `text` parser, it will return a text node that consumed text up until the next non-text node could be parsed.
+The `text` parser was changed from v2.0.0 to v2.0.1 to be stand-alone meaning that if you apply the `text` parser, it will return a text node that consumed text up until the next non-text node could be parsed.
 
 I did this by refacoring the text parser from what was outlined above into a parser that embeds the other `node`parses via lookaheads.
 
