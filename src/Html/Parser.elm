@@ -111,8 +111,8 @@ Here is an example of providing a small subset of commonly-seen character refere
         |> Dict.fromList
         |> customCharRefs
 
-    run config "<span>&male; &dollar; &female;</span>"
-        == Ok (Element "span" [] [Text "&male; $ &female;"])
+    run config "<span>&male; &amp; &female;</span>"
+        == Ok (Element "span" [] [Text "&male; & &female;"])
 
 Notice that character references missing from the lookup table are simply parsed as text.
 
