@@ -424,8 +424,7 @@ node cfg =
         |= oneOf
             [ text cfg
             , comment
-            , backtrackable (element cfg)
-            , justOneChar |> map Text
+            , element cfg
             ]
 
 
@@ -433,18 +432,41 @@ comment : Parser Node
 comment =
     succeed Comment
         |. symbol "<!--"
-        |= (chompUntil "-->" |> getChompedString)
-        |. symbol "-->"
+        |= (chompUntilEndOr "-->" |> getChompedString)
+        |. oneOf [ symbol "-->", succeed () ]
 
 
 text : Config -> Parser Node
 text cfg =
-    oneOf
-        [ succeed Text
-            |= backtrackable (characterReference cfg)
-        , succeed Text
-            |= (chompOneOrMore (\c -> c /= '<' && c /= '&') |> getChompedString)
-        ]
+    (loop "" <|
+        \acc ->
+            oneOf
+                [ -- First, text's positive cases
+                  succeed (\s -> Loop (acc ++ s))
+                    |= backtrackable (characterReference cfg)
+
+                -- Now, the negative cases
+                , succeed (Done acc)
+                    |. lookAhead (openTag cfg)
+                , succeed (Done acc)
+                    |. lookAhead anyCloseTag
+                , succeed (Done acc)
+                    |. lookAhead comment
+
+                -- Finally, text always consumes
+                , succeed (\s -> Loop (acc ++ s))
+                    |= justOneChar
+                , succeed (Done acc)
+                ]
+    )
+        |> andThen
+            (\s ->
+                if String.isEmpty s then
+                    problem "expected at least one text char"
+
+                else
+                    succeed (Text s)
+            )
 
 
 {-| Parse any node unless it's one of the given tags.
@@ -512,6 +534,23 @@ element cfg =
                             -- Void element expects no closing tag
                             succeed (Element tag attrs [])
 
+                        else if List.member tag escapableRawTextTags then
+                            -- Raw text elemements consume text until they find their own closing tag
+                            succeed (Element tag attrs)
+                                |= (loop [] <|
+                                        \acc ->
+                                            oneOf
+                                                [ succeed (Done (List.reverse acc))
+                                                    |. backtrackable (closeTag tag)
+                                                , succeed (\n -> Loop (n :: acc))
+                                                    |= (chompUntilLookAhead (closeTag tag)
+                                                            |> getChompedString
+                                                            |> map Text
+                                                       )
+                                                , succeed (Done (List.reverse acc))
+                                                ]
+                                   )
+
                         else if isAutoclosingTag tag then
                             -- Autoclosing tag is automatically closed by an opening tag of the same name
                             succeed (Element tag attrs)
@@ -535,8 +574,9 @@ element cfg =
                                 |= (loop [] <|
                                         \acc ->
                                             oneOf
-                                                [ backtrackable (closeTag tag) |> map (\_ -> Done (List.reverse acc))
-                                                , succeed (\n -> Loop (mergeText n acc))
+                                                [ succeed (Done (List.reverse acc))
+                                                    |. backtrackable (closeTag tag)
+                                                , succeed (\n -> Loop (n :: acc))
                                                     |= backtrackable (node cfg)
                                                 , succeed () |> map (\_ -> Done (List.reverse acc))
                                                 ]
@@ -659,6 +699,11 @@ autoclosingTags =
     [ "body", "colgroup", "dd", "dt", "head", "html", "li", "option", "p", "tbody", "td", "tfoot", "th", "thead", "tr" ]
 
 
+escapableRawTextTags : List String
+escapableRawTextTags =
+    [ "textarea", "title" ]
+
+
 
 -- HELPERS
 
@@ -667,6 +712,30 @@ chompOneOrMore : (Char -> Bool) -> Parser ()
 chompOneOrMore predicate =
     Parser.chompIf predicate
         |. Parser.chompWhile predicate
+
+
+{-| Chomps until a parser applies but unconsumes that parser's progress.
+-}
+chompUntilLookAhead : Parser a -> Parser ()
+chompUntilLookAhead parser =
+    (loop "" <|
+        \acc ->
+            oneOf
+                [ succeed (Done acc)
+                    |. lookAhead parser
+                , succeed (\s -> Loop (acc ++ s))
+                    |= justOneChar
+                , succeed (Done acc)
+                ]
+    )
+        |> andThen
+            (\acc ->
+                if String.isEmpty acc then
+                    problem "expected some text"
+
+                else
+                    succeed ()
+            )
 
 
 {-| Loop a parser only if it actually consumes something.
@@ -744,7 +813,7 @@ lookAhead parser =
 -- JAVASCRIPT / <script>
 
 
-{-| Chomp inside a <script> tag until the next </script>.
+{-| Chomp inside a <script> tag until the next </script>
 
 This can't be implemented as `chompUntil "</script>"` because
 the Javascript inside the script tag may contain the string "</script>".

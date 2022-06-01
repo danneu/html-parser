@@ -169,8 +169,8 @@ basicElementTests =
     describe "basic element parsing" <|
         testAll
             [ ( "my-basic1", "<a>:></a>", Ok [ Element "a" [] [ Text ":>" ] ] )
+            , ( "my-basic2", "<a><:</a>", Ok [ Element "a" [] [ Text "<:" ] ] )
 
-            -- , ( "my-basic2", "<a><:</a>", Ok [ Element "a" [] [ Text "<:" ] ] )
             -- Tests from hecrj/elm-html-parser
             , ( "basic1", "<a></a>", Ok [ Element "a" [] [] ] )
             , ( "basic2", "<a></a >", Ok [ Element "a" [] [] ] )
@@ -219,15 +219,13 @@ autoclosingTests =
                     , Element "li" [] [ Text "b", Comment "d" ]
                     ]
               )
-
-            -- TODO
-            -- , ( "li-comment-backtrack"
-            --   , "<li>a<!-c<li>b<!-d</li>"
-            --   , Ok
-            --         [ Element "li" [] [ Text "a<!-c" ]
-            --         , Element "li" [] [ Text "b<!-d" ]
-            --         ]
-            --   )
+            , ( "li-comment-backtrack"
+              , "<li>a<!-c<li>b<!-d</li>"
+              , Ok
+                    [ Element "li" [] [ Text "a<!-c" ]
+                    , Element "li" [] [ Text "b<!-d" ]
+                    ]
+              )
             , ( "li-basic", "<li>a</li><li>b", Ok [ Element "li" [] [ Text "a" ], Element "li" [] [ Text "b" ] ] )
             , ( "li-basic1", "<li>a</li><li>b</li>", Ok [ Element "li" [] [ Text "a" ], Element "li" [] [ Text "b" ] ] )
             , ( "li-basic2"
