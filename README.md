@@ -125,15 +125,44 @@ It's not nice and simple anymore. And since it's not possible to make an exhaust
 
 ### (v2.0.1) Parsing text
 
-The `text` parser was changed from v2.0.0 to v2.0.1 to be stand-alone meaning that if you apply the `text` parser, it will return a text node that consumed text up until the next non-text node could be parsed.
+The `text` parser was changed from v2.0.0 to v2.0.1 to be stand-alone meaning that if you apply the `text` parser, it will return a text node that consumes text _up until_ the next non-text node can be parsed, which is pretty useful and DRYs up some text parsing.
 
-I did this by refacoring the text parser from what was outlined above into a parser that embeds the other `node`parses via lookaheads.
+The basic idea is to use lookahead like this:
 
-While it's nice to have stand-alone text parsing behavior, I will need to look more into the performance impact of this.
+```elm
+text : Parser Node
+text =
+    loop "" <| \acc ->
+        oneOf
+            [ -- Positive cases for text
+              -- We want to be as greedy as possible here to avoid lookahead (slow).
+              succeed (\s -> Loop (acc ++ s))
+                |= characterReference
+            , chompOneOrMore (\c -> c /= '<' && c /= '&')
+                |> getChompedString
+                |> map (\s -> Loop (acc ++ s))
 
-### The `LookAhead` parser
+            -- Now we use lookahead to enumerate negative cases.
+            -- Notice how the "match until '<'" case above tries
+            -- to avoid ever reaching here.
+            , succeed (Done acc)
+                |. lookAhead (openTag cfg) -- Starts with "<"
+            , succeed (Done acc)
+                |. lookAhead anyCloseTag -- Starts with "<"
+            , succeed (Done acc)
+                |. lookAhead comment -- Starts with "<"
 
-TODO
+            -- Finally, if we get here, we always consume one character.
+            , succeed (\s -> Loop (acc ++ s))
+                |= justOneChar
+            , succeed (Done acc)
+            ]
+
+```
+
+Between v2.0.1 -> v2.0.2, I realized how important it is to enumerate positive
+cases so that lookahead is minimized. For example, adding the `chompOneOrMore`
+bit above improved my benchmark 700x.
 
 ## Special thanks
 
