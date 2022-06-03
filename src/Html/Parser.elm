@@ -259,19 +259,11 @@ parseAll cfg =
     Parser.loop [] <|
         \acc ->
             oneOf
-                [ node cfg |> map (\n -> Loop (mergeText n acc))
-                , succeed () |> map (\_ -> Done (List.reverse acc))
+                [ node cfg
+                    |> map (\n -> Loop (n :: acc))
+                , succeed ()
+                    |> map (\_ -> Done (List.reverse acc))
                 ]
-
-
-mergeText : Node -> List Node -> List Node
-mergeText n nodes =
-    case ( n, nodes ) of
-        ( Text s, (Text prev) :: rest ) ->
-            Text (prev ++ s) :: rest
-
-        _ ->
-            n :: nodes
 
 
 {-| Chomps zero or more space characters or html comments.
@@ -281,7 +273,7 @@ ws =
     loop 0 <|
         ifProgress <|
             oneOf
-                [ multiComment "<!--" "-->" Nestable
+                [ multiComment "<!--" "-->" NotNestable
                 , chompWhile isSpace
                 ]
 
@@ -441,7 +433,13 @@ text cfg =
             oneOf
                 [ -- First, text's positive cases
                   succeed (\s -> Loop (acc ++ s))
-                    |= backtrackable (characterReference cfg)
+                    |= characterReference cfg
+
+                -- We want to chomp as much as we can before getting to
+                -- the slower lookAhead cases.
+                , chompOneOrMore (\c -> c /= '<' && c /= '&')
+                    |> getChompedString
+                    |> map (\s -> Loop (acc ++ s))
 
                 -- Now, the negative cases
                 , succeed (Done acc)
