@@ -202,6 +202,10 @@ basicAttributeTests =
                         []
                     ]
               )
+            , ( "quoted-ref", "<a x=\"&male;\"></a>", Ok [ Element "a" [ ( "x", "♂" ) ] [] ] )
+            , ( "quoted-non-ref", "<a x=\"u&me\"></a>", Ok [ Element "a" [ ( "x", "u&me" ) ] [] ] )
+            , ( "unquoted-ref", "<a x=&male;></a>", Ok [ Element "a" [ ( "x", "♂" ) ] [] ] )
+            , ( "unquoted-non-ref", "<a x=u&me></a>", Ok [ Element "a" [ ( "x", "u&me" ) ] [] ] )
             ]
 
 

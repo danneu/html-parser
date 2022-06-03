@@ -298,10 +298,8 @@ isSpace c =
 attributeValueUnquoted : Config -> Parser String
 attributeValueUnquoted cfg =
     let
-        -- isUnquotedValueChar c =
-        --     not (isSpace c) && c /= '"' && c /= '\'' && c /= '=' && c /= '<' && c /= '>' && c /= '`' && c /= '&'
         isLenientUnquotedValueChar c =
-            not (isSpace c) && c /= '>'
+            not (isSpace c) && c /= '>' && c /= '&'
     in
     oneOf
         [ chompOneOrMore isLenientUnquotedValueChar
