@@ -493,7 +493,6 @@ openTag : Config -> Parser ( String, List ( String, String ), OpenTagEnd )
 openTag cfg =
     succeed (\a b c -> ( a, b, c ))
         |. symbol "<"
-        |. ws
         |= tagName
         |. ws
         |= zeroOrMore (attribute cfg)
@@ -882,9 +881,6 @@ stringHelp terminatorChar terminatorStr acc =
             |= justOneChar
         , Parser.token terminatorStr
             |> Parser.map (\_ -> Parser.Done acc)
-
-        -- Orig code caused infinite loop with single terminator char <script>'</script>
-        -- , Parser.chompWhile (\char -> char /= '\\' && char /= terminatorChar)
         , chompOneOrMore (\char -> char /= '\\' && char /= terminatorChar)
             |> Parser.getChompedString
             |> Parser.map (\chunk -> Parser.Loop (acc ++ chunk))

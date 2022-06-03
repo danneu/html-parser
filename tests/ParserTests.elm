@@ -178,6 +178,7 @@ basicElementTests =
             , ( "basic4", " <a></a> ", Ok [ Text " ", Element "a" [] [], Text " " ] )
             , ( "basic5", "a<a></a>b", Ok [ Text "a", Element "a" [] [], Text "b" ] )
             , ( "basic6", "<A></A>", Ok [ Element "a" [] [] ] )
+            , ( "basic7", "< a></a>", Ok [ Text "< a>" ] )
             ]
 
 
@@ -786,4 +787,25 @@ jsoupParserTests =
                     ]
               )
             , ( "all-hyphen comment is not parse error", "<!------>", Ok [ Comment "--" ] )
+            , ( "handles invalid start tag 1"
+              , "<div>Hello < There <&amp;></div>"
+              , Ok
+                    [ Element "div"
+                        []
+                        [ Text "Hello < There <&>"
+                        ]
+                    ]
+              )
+
+            -- This isn't a jsoup test but it's what the browser does
+            , ( "handles weird start tag"
+              , "<div>Hello <There <&amp;></div>"
+              , Ok
+                    [ Element "div"
+                        []
+                        [ Text "Hello "
+                        , Element "there" [ ( "<&amp;", "" ) ] []
+                        ]
+                    ]
+              )
             ]
