@@ -1,9 +1,10 @@
 module Html.Loc exposing
     ( Loc, toLoc, toNode
     , goUp, goDown, goLeft, goRight, goNext
-    , select
+    , select, selectAll
     , any, tagEq, idEq, classEq, attrEq, attrContains, attrEndsWith, attrStartsWith, hasAttr, or, and, not
     , directChild, anyChild, directSibling, anySibling, lastChild
+    , Selector, walk
     )
 
 {-| EXPERIMENTAL!!! This module provides functions for traversing, querying, and updating the html tree.
@@ -23,7 +24,7 @@ This is implemented by turning the `Html.Parser.Node` tree into a zipper data-st
 
 # Query
 
-@docs select
+@docs select, selectAll
 
 
 # Basic selectors
@@ -192,6 +193,42 @@ goNext loc =
 -- SEARCH
 
 
+type alias Selector =
+    Loc -> Bool
+
+
+selectLocHelp : Selector -> Maybe Loc -> Maybe Loc
+selectLocHelp selector maybeLoc =
+    case maybeLoc of
+        Nothing ->
+            Nothing
+
+        Just loc ->
+            if selector loc then
+                Just loc
+
+            else
+                selectLocHelp selector (goNext loc)
+
+
+{-| Select the first loc that matches selector.
+-}
+selectLoc : Selector -> Loc -> Maybe Loc
+selectLoc selector loc =
+    selectLocHelp selector (Just loc)
+
+
+{-| Return the first node (depth-first) that matches the selector.
+
+Stops traversing once it finds a match.
+
+-}
+select : Selector -> Loc -> Maybe Node
+select selector loc =
+    selectLoc selector loc
+        |> Maybe.map toNode
+
+
 {-| Return a list of all locs (depth-first) that match the selector.
 -}
 selectLocs : (Loc -> Bool) -> Loc -> List Loc
@@ -215,8 +252,8 @@ selectLocs selector loc =
 
 {-| Return a list of all nodes (depth-first) that match the selector.
 -}
-select : (Loc -> Bool) -> Loc -> List Node
-select selector loc =
+selectAll : (Loc -> Bool) -> Loc -> List Node
+selectAll selector loc =
     selectLocs selector loc
         |> List.map toNode
 
@@ -241,7 +278,7 @@ hasAttr key =
     \loc ->
         case toNode loc of
             Element _ attrs _ ->
-                List.any (\( k, _ ) -> k == key) attrs
+                List.any (\( k, _ ) -> String.toLower k == String.toLower key) attrs
 
             _ ->
                 False
@@ -261,6 +298,25 @@ idEq key =
     attrEq "id" key
 
 
+{-| splitClasses " aaa bbb ccc " == ["aaa", "bbb", "ccc"]
+
+Avoiding regex dependency for now.
+
+Could use regex:
+
+    nonwhitespace =
+        Regex.fromString "\\S+" |> Maybe.withDefault Regex.never
+
+    Regex.find nonwhitespace input
+    |> List.map .match
+
+-}
+splitClasses : String -> List String
+splitClasses input =
+    String.split " " input
+        |> List.filter (Basics.not << String.isEmpty)
+
+
 {-| Returns true if node has a given class.
 
     class "warning"
@@ -268,8 +324,12 @@ idEq key =
 
 -}
 classEq : String -> (Loc -> Bool)
-classEq target =
+classEq target_ =
     \loc ->
+        let
+            target =
+                String.toLower target_
+        in
         case toNode loc of
             Element _ attrs _ ->
                 let
@@ -280,7 +340,7 @@ classEq target =
                                 False
 
                             ( "class", v ) :: rest ->
-                                if v == target || List.any (\cls -> cls == target) (String.split " " v) then
+                                if List.any (\cls -> cls == target) (splitClasses (String.toLower v)) then
                                     True
 
                                 else
@@ -638,3 +698,39 @@ delete (Loc _ p) =
         PNode tag attrs [] up [] ->
             -- Parent has no more children
             Just (Loc (Element tag attrs []) up)
+
+
+{-| Is there another solution?
+-}
+goRoot : Loc -> Loc
+goRoot loc =
+    case goUp loc of
+        Nothing ->
+            loc
+
+        Just parent ->
+            goRoot parent
+
+
+update : (Node -> Node) -> Loc -> Loc
+update xform (Loc n p) =
+    Loc (xform n) p
+
+
+{-| -}
+walk : (Loc -> Bool) -> (Node -> Node) -> Loc -> Loc
+walk selector xform loc =
+    let
+        newLoc =
+            if selector loc then
+                update xform loc
+
+            else
+                loc
+    in
+    case goNext newLoc of
+        Nothing ->
+            goRoot newLoc
+
+        Just next ->
+            walk selector xform next

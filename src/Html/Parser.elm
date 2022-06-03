@@ -143,7 +143,12 @@ run cfg input =
 -}
 runElement : Config -> String -> Result (List DeadEnd) Node
 runElement cfg input =
-    Parser.run (element cfg) input
+    Parser.run
+        (succeed identity
+            |. ws
+            |= element cfg
+        )
+        input
 
 
 {-| An html document has a `<!doctype>` and then a root html node.
