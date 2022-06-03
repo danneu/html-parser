@@ -3,7 +3,7 @@
     "name": "danneu/html-parser",
     "summary": "A lenient html5 parser",
     "license": "MIT",
-    "version": "2.0.1",
+    "version": "2.0.2",
     "exposed-modules": [
         "Html.Parser"
     ],
