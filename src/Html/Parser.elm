@@ -36,6 +36,7 @@ import Html
 import Html.Attributes
 import Html.CharRefs
 import Parser exposing (..)
+import Parser.Extra exposing (..)
 
 
 {-| An html node is tree of text, comments, and element nodes.
@@ -151,31 +152,6 @@ type alias Document =
     { legacyCompat : Bool
     , root : Node
     }
-
-
-{-| Like `Parser.token` except token is matched case-insensitive.
--}
-caseInsensitiveToken : String -> Parser ()
-caseInsensitiveToken string =
-    let
-        help : String -> Parser.Parser () -> Parser.Parser ()
-        help string_ parser =
-            case String.uncons string_ of
-                Nothing ->
-                    parser
-
-                Just ( char, rest ) ->
-                    parser
-                        |> Parser.andThen
-                            (\_ ->
-                                oneOf
-                                    [ chompIf (\c -> Char.toLower c == Char.toLower char)
-                                    , problem ("expected case-insensitive char '" ++ String.fromChar char ++ "'")
-                                    ]
-                            )
-                        |> help rest
-    in
-    help string (succeed ())
 
 
 doctypeLegacy : Parser Bool
@@ -374,14 +350,18 @@ tagName =
         |> map String.toLower
 
 
-closeTag : String -> Parser ()
-closeTag expectedTag =
-    (succeed identity
+anyCloseTag : Parser String
+anyCloseTag =
+    succeed identity
         |. token "</"
         |= tagName
         |. ws
         |. token ">"
-    )
+
+
+closeTag : String -> Parser ()
+closeTag expectedTag =
+    anyCloseTag
         |> andThen
             (\tag ->
                 if tag == expectedTag then
@@ -395,15 +375,6 @@ closeTag expectedTag =
 type OpenTagEnd
     = NoClose
     | SelfClose
-
-
-anyCloseTag : Parser ()
-anyCloseTag =
-    succeed ()
-        |. token "</"
-        |. tagName
-        |. ws
-        |. token ">"
 
 
 node : Config -> Parser Node
@@ -538,7 +509,7 @@ element cfg =
                                                 [ succeed (Done (List.reverse acc))
                                                     |. backtrackable (closeTag tag)
                                                 , succeed (\n -> Loop (n :: acc))
-                                                    |= (chompUntilLookAhead (closeTag tag)
+                                                    |= (chompUntilLookAhead (\c -> c /= '<') (closeTag tag)
                                                             |> getChompedString
                                                             |> map Text
                                                        )
@@ -701,110 +672,6 @@ escapableRawTextTags =
 
 
 -- HELPERS
-
-
-chompOneOrMore : (Char -> Bool) -> Parser ()
-chompOneOrMore predicate =
-    Parser.chompIf predicate
-        |. Parser.chompWhile predicate
-
-
-{-| Chomps until a parser applies but unconsumes that parser's progress.
--}
-chompUntilLookAhead : Parser a -> Parser ()
-chompUntilLookAhead parser =
-    (loop "" <|
-        \acc ->
-            oneOf
-                [ succeed (Done acc)
-                    |. lookAhead parser
-                , succeed (\s -> Loop (acc ++ s))
-                    |= justOneChar
-                , succeed (Done acc)
-                ]
-    )
-        |> andThen
-            (\acc ->
-                if String.isEmpty acc then
-                    problem "expected some text"
-
-                else
-                    succeed ()
-            )
-
-
-{-| Loop a parser only if it actually consumes something.
-
-For example, parsers like `spaces` and `chompWhile` will happily
-consume 0 input, so when put in a loop the parser will never terminate.
-
--}
-ifProgress : Parser a -> Int -> Parser (Step Int ())
-ifProgress parser offset =
-    succeed identity
-        |. parser
-        |= getOffset
-        |> map
-            (\newOffset ->
-                if offset == newOffset then
-                    Done ()
-
-                else
-                    Loop newOffset
-            )
-
-
-zeroOrMore : Parser a -> Parser (List a)
-zeroOrMore parser =
-    Parser.loop []
-        (\acc ->
-            oneOf
-                [ succeed (\val -> Loop (val :: acc))
-                    |= parser
-                , succeed (Done (List.reverse acc))
-                ]
-        )
-
-
-oneOrMore : String -> Parser a -> Parser (List a)
-oneOrMore name parser =
-    Parser.loop []
-        (\acc ->
-            oneOf
-                [ succeed (\val -> Loop (val :: acc))
-                    |= parser
-                , if List.isEmpty acc then
-                    problem ("expecting at least one " ++ name)
-
-                  else
-                    succeed (Done (List.reverse acc))
-                ]
-        )
-
-
-{-| Create a parser that backtracks on success.
--}
-lookAhead : Parser a -> Parser ()
-lookAhead parser =
-    oneOf
-        [ oneOf
-            [ parser
-                |> backtrackable
-                |> andThen (\_ -> commit ())
-                |> andThen (\_ -> problem "")
-            , succeed
-                (parser
-                    |> backtrackable
-                    |> map (\_ -> ())
-                )
-            ]
-            |> backtrackable
-        , succeed (succeed ())
-        ]
-        |> andThen identity
-
-
-
 -- JAVASCRIPT / <script>
 
 
@@ -883,12 +750,6 @@ stringHelp terminatorChar terminatorStr acc =
             |> Parser.getChompedString
             |> Parser.map (\chunk -> Parser.Loop (acc ++ chunk))
         ]
-
-
-justOneChar : Parser String
-justOneChar =
-    chompIf (always True)
-        |> getChompedString
 
 
 
