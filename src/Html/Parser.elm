@@ -530,6 +530,10 @@ element cfg =
                                             (if tag == "head" then
                                                 notNode cfg [ tag, "body" ]
 
+                                             else if tag == "td" then
+                                                -- https://github.com/danneu/html-parser/issues/5
+                                                notNode cfg [ tag, "tr" ]
+
                                              else
                                                 notNode cfg [ tag ]
                                             )

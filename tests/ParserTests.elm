@@ -162,6 +162,7 @@ basicCommentTests =
             , ( "basic4", "<a><!--x--></a>", Ok [ Element "a" [] [ Comment "x" ] ] )
             , ( "basic5", "<!--a--><a><!--b--></a><!--c-->", Ok [ Comment "a", Element "a" [] [ Comment "b" ], Comment "c" ] )
             , ( "basic6", "<!---->-->", Ok [ Comment "", Text "-->" ] )
+            , ( "no-nesting", "<!--\nline1\n<!--line2-->\nline3-->", Ok [ Comment "\nline1\n<!--line2", Text "\nline3-->" ] )
             ]
 
 
@@ -330,6 +331,49 @@ basicNestingTests =
                                 ]
                             ]
                         , Element "li" [] [ Text "c" ]
+                        ]
+                    ]
+              )
+            ]
+
+
+specialAutoclosingTests : Test
+specialAutoclosingTests =
+    describe "special autoclosing cases" <|
+        testAll
+            [ ( "body closes head"
+              , "<head>a<body>b"
+              , Ok
+                    [ Element "head" [] [ Text "a" ]
+                    , Element "body" [] [ Text "b" ]
+                    ]
+              )
+
+            -- https://github.com/danneu/html-parser/issues/5
+            , ( "tr closes td"
+              , removeWhitespace """
+<table>
+<tr>
+    <td>A1</td>
+    <td>B1
+<tr>
+    <td>A2</td>
+    <td>B2
+</table>
+            """
+              , Ok
+                    [ Element "table"
+                        []
+                        [ Element "tr"
+                            []
+                            [ Element "td" [] [ Text "A1" ]
+                            , Element "td" [] [ Text "B1" ]
+                            ]
+                        , Element "tr"
+                            []
+                            [ Element "td" [] [ Text "A2" ]
+                            , Element "td" [] [ Text "B2" ]
+                            ]
                         ]
                     ]
               )
@@ -809,3 +853,12 @@ jsoupParserTests =
                     ]
               )
             ]
+
+
+
+-- UTIL
+
+
+removeWhitespace : String -> String
+removeWhitespace =
+    String.filter (\c -> c /= ' ' && c /= '\n')
